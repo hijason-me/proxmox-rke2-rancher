@@ -35,7 +35,7 @@
 
 - name: Wait for first server to become ready before joining others
   pause:
-    seconds: 30
+    seconds: 60
   when: inventory_hostname not in groups['rke2_first_server']
 
 - name: Enable and start rke2-server (join cluster)
@@ -62,9 +62,80 @@
     line: "export KUBECONFIG=/etc/rancher/rke2/rke2.yaml"
     create: true
 
-- name: Fetch kubeconfig (first server only)
+# ── Kubeconfig: fetch, fix server address, merge locally ─────────────────
+
+- name: Create local kubeconfigs directory
+  delegate_to: localhost
+  become: false
+  file:
+    path: "{{ playbook_dir }}/../../kubeconfigs"
+    state: directory
+    mode: "0700"
+  when: inventory_hostname in groups['rke2_first_server']
+
+- name: Fetch raw kubeconfig from first server
   fetch:
     src: /etc/rancher/rke2/rke2.yaml
-    dest: "{{ playbook_dir }}/../kubeconfigs/{{ inventory_hostname }}.yaml"
+    dest: "{{ playbook_dir }}/../../kubeconfigs/{{ rke2_cluster_name | default('management') }}-raw.yaml"
     flat: true
+  when: inventory_hostname in groups['rke2_first_server']
+
+- name: Fix server address and set context name in kubeconfig
+  delegate_to: localhost
+  become: false
+  shell: |
+    set -e
+    RAW="{{ playbook_dir }}/../../kubeconfigs/{{ rke2_cluster_name | default('management') }}-raw.yaml"
+    OUT="{{ playbook_dir }}/../../kubeconfigs/{{ rke2_cluster_name | default('management') }}.yaml"
+    CLUSTER="{{ rke2_cluster_name | default('management') }}"
+
+    # Replace 127.0.0.1:6443 with the actual VIP
+    sed "s|https://127.0.0.1:6443|https://{{ rke2_vip }}:6443|g" "$RAW" > "$OUT"
+
+    # Rename context/cluster/user to the cluster name so merging is clean
+    sed -i "s/name: default/name: ${CLUSTER}/g" "$OUT"
+    sed -i "s/cluster: default/cluster: ${CLUSTER}/g" "$OUT"
+    sed -i "s/user: default/user: ${CLUSTER}/g" "$OUT"
+    sed -i "s/current-context: default/current-context: ${CLUSTER}/g" "$OUT"
+
+    chmod 600 "$OUT"
+    rm -f "$RAW"
+    echo "Kubeconfig saved: $OUT"
+  args:
+    executable: /bin/bash
+  when: inventory_hostname in groups['rke2_first_server']
+
+- name: Merge kubeconfig into ~/.kube/config
+  delegate_to: localhost
+  become: false
+  shell: |
+    set -e
+    CLUSTER="{{ rke2_cluster_name | default('management') }}"
+    NEW="{{ playbook_dir }}/../../kubeconfigs/${CLUSTER}.yaml"
+    MERGED="$HOME/.kube/config"
+
+    mkdir -p "$HOME/.kube"
+    chmod 700 "$HOME/.kube"
+
+    if [ -f "$MERGED" ]; then
+      # Merge without overwriting existing contexts
+      KUBECONFIG="${MERGED}:${NEW}" kubectl config view --flatten > /tmp/merged-kubeconfig.yaml
+      mv /tmp/merged-kubeconfig.yaml "$MERGED"
+    else
+      cp "$NEW" "$MERGED"
+    fi
+    chmod 600 "$MERGED"
+    echo "Merged into $MERGED — context: ${CLUSTER}"
+  args:
+    executable: /bin/bash
+  when: inventory_hostname in groups['rke2_first_server']
+
+- name: Show kubeconfig instructions
+  delegate_to: localhost
+  become: false
+  debug:
+    msg:
+      - "Kubeconfig merged into ~/.kube/config"
+      - "Switch context: kubectl config use-context {{ rke2_cluster_name | default('management') }}"
+      - "Verify:        kubectl get nodes"
   when: inventory_hostname in groups['rke2_first_server']

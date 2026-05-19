@@ -27,3 +27,5 @@ all:
         rke2_node_role: control-plane
         rke2_node_taints:
           - "CriticalAddonsOnly=true:NoSchedule"
+        # Context name used in ~/.kube/config after merge
+        rke2_cluster_name: management
