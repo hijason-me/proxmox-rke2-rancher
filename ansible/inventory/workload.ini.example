@@ -7,16 +7,21 @@ workload-cp-3 ansible_host=192.168.1.113
 workload-worker-1 ansible_host=192.168.1.121
 workload-worker-2 ansible_host=192.168.1.122
 
-[rke2_cluster:children]
-rke2_servers
-rke2_agents
-
-[rke2_cluster:vars]
-ansible_user=ubuntu
-ansible_ssh_private_key_file=~/.ssh/id_ed25519
+[rke2_first_server]
+workload-cp-1 ansible_host=192.168.1.111
 
 [rke2_servers:vars]
-rke2_role=server
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/id_ed25519
+rke2_token=your-very-long-random-token-here
+rke2_vip=192.168.1.110
+rke2_server_url=192.168.1.110
+rke2_extra_sans=[]
+rke2_node_role=control-plane
+rke2_node_taints=["node-role.kubernetes.io/control-plane=true:NoSchedule"]
 
 [rke2_agents:vars]
-rke2_role=agent
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/id_ed25519
+rke2_token=your-very-long-random-token-here
+rke2_server_url=192.168.1.110

@@ -1,6 +1,6 @@
 ---
 - name: Common OS preparation
-  hosts: rke2_cluster
+  hosts: all
   become: true
   roles:
     - common
