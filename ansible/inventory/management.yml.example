@@ -29,3 +29,6 @@ all:
           - "CriticalAddonsOnly=true:NoSchedule"
         # Context name used in ~/.kube/config after merge
         rke2_cluster_name: management
+        # Network interface for kube-vip VIP binding
+        # Check with: ip link show   (usually eth0 or ens18)
+        rke2_vip_interface: eth0

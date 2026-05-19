@@ -6,3 +6,5 @@ rke2_extra_sans: []
 rke2_node_role: "control-plane"
 rke2_node_taints: []
 rke2_cluster_name: management
+# Network interface kube-vip binds the VIP on (check with: ip link show)
+rke2_vip_interface: eth0

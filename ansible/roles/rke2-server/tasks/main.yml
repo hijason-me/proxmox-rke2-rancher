@@ -20,6 +20,20 @@
   args:
     creates: /usr/local/bin/rke2
 
+- name: Create RKE2 auto-deploy manifests directory
+  file:
+    path: /var/lib/rancher/rke2/server/manifests
+    state: directory
+    mode: "0750"
+  when: inventory_hostname in groups['rke2_first_server']
+
+- name: Deploy kube-vip manifest (auto-applied by RKE2 on startup)
+  template:
+    src: kube-vip.yaml.j2
+    dest: /var/lib/rancher/rke2/server/manifests/kube-vip.yaml
+    mode: "0640"
+  when: inventory_hostname in groups['rke2_first_server']
+
 - name: Enable and start rke2-server (first server bootstraps)
   systemd:
     name: rke2-server
@@ -31,6 +45,16 @@
   wait_for:
     path: /etc/rancher/rke2/rke2.yaml
     timeout: 300
+  when: inventory_hostname in groups['rke2_first_server']
+
+- name: Wait for kube-vip to bring up VIP
+  wait_for:
+    host: "{{ rke2_vip }}"
+    port: 6443
+    timeout: 120
+    delay: 10
+  delegate_to: localhost
+  become: false
   when: inventory_hostname in groups['rke2_first_server']
 
 - name: Wait for first server to become ready before joining others
