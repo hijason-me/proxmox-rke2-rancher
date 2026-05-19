@@ -56,12 +56,8 @@ resource "proxmox_virtual_environment_vm" "node" {
       servers = var.dns_servers
     }
 
-    user_account {
-      username = "ubuntu"
-      keys     = var.ssh_public_keys
-    }
-
-    # Passes RKE2 join config via cloud-init user-data
+    # SSH keys are injected via the custom cloud-init snippet below.
+    # user_account is omitted because user_data_file_id overrides it.
     user_data_file_id = proxmox_virtual_environment_file.cloud_init[0].id
   }
 
@@ -93,6 +89,7 @@ resource "proxmox_virtual_environment_file" "cloud_init" {
       rke2_sans         = var.rke2_sans
       node_labels       = var.node_labels
       node_taints       = var.node_taints
+      ssh_public_keys   = var.ssh_public_keys
     })
   }
 }

@@ -1,5 +1,16 @@
 #cloud-config
 hostname: ${hostname}
+
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+%{ for key in ssh_public_keys ~}
+      - ${key}
+%{ endfor ~}
+
 package_update: true
 packages:
   - curl
