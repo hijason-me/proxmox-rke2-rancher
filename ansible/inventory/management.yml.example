@@ -1,0 +1,29 @@
+all:
+  children:
+    rke2_first_server:
+      hosts:
+        mgmt-cp-1:
+          ansible_host: 192.168.1.101
+
+    rke2_servers:
+      hosts:
+        mgmt-cp-1:
+          ansible_host: 192.168.1.101
+        mgmt-cp-2:
+          ansible_host: 192.168.1.102
+        mgmt-cp-3:
+          ansible_host: 192.168.1.103
+      vars:
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+        # Must match rke2_token in terraform.tfvars
+        rke2_token: your-very-long-random-token-here
+        # Use mgmt-cp-1 direct IP for initial bootstrap (NOT the VIP).
+        # kube-vip doesn't exist yet on first run.
+        rke2_server_url: 192.168.1.101
+        # VIP — must match mgmt_vip in terraform.tfvars
+        rke2_vip: 192.168.1.100
+        rke2_extra_sans: []
+        rke2_node_role: control-plane
+        rke2_node_taints:
+          - "CriticalAddonsOnly=true:NoSchedule"
