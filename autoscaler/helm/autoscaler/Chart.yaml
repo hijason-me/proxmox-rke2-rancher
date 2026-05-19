@@ -1,0 +1,6 @@
+apiVersion: v2
+name: proxmox-autoscaler
+description: Custom node autoscaler for RKE2 clusters on Proxmox VE
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

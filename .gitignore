@@ -1,0 +1,40 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+crash.log
+
+# Ansible
+ansible/inventory/*.ini
+!ansible/inventory/*.ini.example
+ansible/kubeconfigs/
+*.retry
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+kubeconfigs/
+
+# Secrets
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+.env
+secrets.yaml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db

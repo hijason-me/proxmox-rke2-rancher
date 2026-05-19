@@ -1,0 +1,117 @@
+name: Upgrade Kubernetes (RKE2)
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: "Target cluster (management / workload-1 / all)"
+        required: true
+        default: workload-1
+        type: choice
+        options: [management, workload-1, all]
+      rke2_version:
+        description: "Target RKE2 version (e.g., v1.31.0+rke2r1)"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run — show plan only, do not upgrade"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  pre-check:
+    name: Pre-upgrade Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_MGMT" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+        env:
+          KUBECONFIG_MGMT: ${{ secrets.KUBECONFIG_MGMT }}
+
+      - name: Check all nodes Ready
+        run: |
+          not_ready=$(kubectl get nodes --no-headers | grep -v " Ready" | wc -l)
+          if [ "$not_ready" -gt 0 ]; then
+            echo "ERROR: $not_ready node(s) not Ready — aborting upgrade"
+            kubectl get nodes
+            exit 1
+          fi
+          echo "All nodes Ready. Proceeding with upgrade to ${{ inputs.rke2_version }}"
+
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.rke2_version }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+\+rke2r[0-9]+$'; then
+            echo "ERROR: Invalid version format. Expected: vX.Y.Z+rke2rN"
+            exit 1
+          fi
+
+  upgrade:
+    name: Rolling Upgrade
+    needs: pre-check
+    runs-on: ubuntu-latest
+    if: ${{ inputs.dry_run == 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tools
+        run: |
+          pip install ansible kubernetes
+          ansible-galaxy collection install kubernetes.core
+
+      - name: Write SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H $(cat ansible/inventory/${{ inputs.cluster }}.ini | grep ansible_host | awk '{print $2}' | cut -d= -f2 | tr '\n' ' ') >> ~/.ssh/known_hosts 2>/dev/null || true
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_MGMT" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+        env:
+          KUBECONFIG_MGMT: ${{ secrets.KUBECONFIG_MGMT }}
+
+      - name: Run rolling upgrade
+        run: |
+          ansible-playbook ansible/playbooks/upgrade-rke2.yml \
+            -i ansible/inventory/${{ inputs.cluster }}.ini \
+            -e rke2_version="${{ inputs.rke2_version }}" \
+            -e kubeconfig_path="$HOME/.kube/config" \
+            --diff
+
+      - name: Post-upgrade node status
+        run: kubectl get nodes -o wide
+
+      - name: Summary
+        run: |
+          echo "## Upgrade Complete" >> $GITHUB_STEP_SUMMARY
+          echo "Cluster: \`${{ inputs.cluster }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Version: \`${{ inputs.rke2_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Node Status" >> $GITHUB_STEP_SUMMARY
+          kubectl get nodes -o wide | cat >> $GITHUB_STEP_SUMMARY
+
+  dry-run-summary:
+    name: Dry Run Summary
+    runs-on: ubuntu-latest
+    if: ${{ inputs.dry_run == 'true' }}
+    steps:
+      - run: |
+          echo "## Dry Run — Upgrade Plan" >> $GITHUB_STEP_SUMMARY
+          echo "Cluster: \`${{ inputs.cluster }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Current → Target: \`${{ inputs.rke2_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Re-run with \`dry_run: false\` to execute." >> $GITHUB_STEP_SUMMARY

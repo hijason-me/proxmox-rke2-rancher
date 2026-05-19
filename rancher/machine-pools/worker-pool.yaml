@@ -1,0 +1,35 @@
+# Rancher Machine Pool definition for workload cluster worker nodes
+# Apply this via Rancher UI or Fleet after the workload cluster is imported.
+# This defines the pool the autoscaler controller will scale.
+---
+apiVersion: provisioning.cattle.io/v1
+kind: Cluster
+metadata:
+  name: workload-1
+  namespace: fleet-default
+  annotations:
+    # Autoscaler reads these to know the allowed range
+    autoscaler.proxmox.io/min-nodes: "2"
+    autoscaler.proxmox.io/max-nodes: "10"
+    autoscaler.proxmox.io/scale-up-threshold-cpu: "80"
+    autoscaler.proxmox.io/scale-up-threshold-mem: "85"
+    autoscaler.proxmox.io/scale-down-threshold-cpu: "30"
+    autoscaler.proxmox.io/scale-down-threshold-mem: "40"
+    autoscaler.proxmox.io/scale-up-delay-minutes: "2"
+    autoscaler.proxmox.io/scale-down-delay-minutes: "10"
+spec:
+  kubernetesVersion: v1.30.4+rke2r1
+  rkeConfig:
+    machinePools:
+      - name: worker-pool
+        quantity: 2   # baseline; autoscaler adjusts this
+        etcdRole: false
+        controlPlaneRole: false
+        workerRole: true
+        machineConfigRef:
+          apiVersion: rke-machine-config.cattle.io/v1
+          kind: ProxmoxConfig
+          name: workload-1-worker-config
+        labels:
+          node-role: worker
+          managed-by: autoscaler

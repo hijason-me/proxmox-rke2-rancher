@@ -1,0 +1,22 @@
+[rke2_servers]
+workload-cp-1 ansible_host=192.168.1.111
+workload-cp-2 ansible_host=192.168.1.112
+workload-cp-3 ansible_host=192.168.1.113
+
+[rke2_agents]
+workload-worker-1 ansible_host=192.168.1.121
+workload-worker-2 ansible_host=192.168.1.122
+
+[rke2_cluster:children]
+rke2_servers
+rke2_agents
+
+[rke2_cluster:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/id_ed25519
+
+[rke2_servers:vars]
+rke2_role=server
+
+[rke2_agents:vars]
+rke2_role=agent

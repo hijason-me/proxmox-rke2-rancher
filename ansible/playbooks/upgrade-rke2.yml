@@ -1,0 +1,107 @@
+---
+# Rolling upgrade: servers first (one at a time), then agents in batches
+# Usage: ansible-playbook upgrade-rke2.yml -e rke2_version=v1.31.0+rke2r1
+- name: Upgrade RKE2 servers (rolling, one at a time)
+  hosts: rke2_servers
+  become: true
+  serial: 1
+  tasks:
+    - name: Drain node before upgrade
+      delegate_to: localhost
+      kubernetes.core.k8s_drain:
+        name: "{{ inventory_hostname }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        delete_options:
+          ignore_daemonsets: true
+          delete_emptydir_data: true
+        wait_timeout: 300
+
+    - name: Stop rke2-server
+      systemd:
+        name: rke2-server
+        state: stopped
+
+    - name: Upgrade RKE2
+      shell: |
+        curl -sfL https://get.rke2.io | \
+          INSTALL_RKE2_VERSION="{{ rke2_version }}" \
+          INSTALL_RKE2_TYPE="server" sh -
+
+    - name: Start rke2-server
+      systemd:
+        name: rke2-server
+        state: started
+
+    - name: Wait for node to become Ready
+      delegate_to: localhost
+      kubernetes.core.k8s_info:
+        kind: Node
+        name: "{{ inventory_hostname }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 300
+
+    - name: Uncordon node
+      delegate_to: localhost
+      kubernetes.core.k8s_drain:
+        name: "{{ inventory_hostname }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: uncordon
+
+    - name: Wait between upgrades
+      pause:
+        seconds: 30
+
+- name: Upgrade RKE2 agents (rolling, 25% at a time)
+  hosts: rke2_agents
+  become: true
+  serial: "25%"
+  tasks:
+    - name: Drain node before upgrade
+      delegate_to: localhost
+      kubernetes.core.k8s_drain:
+        name: "{{ inventory_hostname }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        delete_options:
+          ignore_daemonsets: true
+          delete_emptydir_data: true
+          grace_period: 60
+        wait_timeout: 300
+
+    - name: Stop rke2-agent
+      systemd:
+        name: rke2-agent
+        state: stopped
+
+    - name: Upgrade RKE2
+      shell: |
+        curl -sfL https://get.rke2.io | \
+          INSTALL_RKE2_VERSION="{{ rke2_version }}" \
+          INSTALL_RKE2_TYPE="agent" sh -
+
+    - name: Start rke2-agent
+      systemd:
+        name: rke2-agent
+        state: started
+
+    - name: Wait for node to become Ready
+      delegate_to: localhost
+      kubernetes.core.k8s_info:
+        kind: Node
+        name: "{{ inventory_hostname }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 300
+
+    - name: Uncordon node
+      delegate_to: localhost
+      kubernetes.core.k8s_drain:
+        name: "{{ inventory_hostname }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: uncordon

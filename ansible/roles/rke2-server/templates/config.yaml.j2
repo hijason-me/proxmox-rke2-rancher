@@ -1,0 +1,19 @@
+token: {{ rke2_token }}
+{% if inventory_hostname not in groups['rke2_first_server'] %}
+server: https://{{ rke2_server_url }}:9345
+{% endif %}
+tls-san:
+  - {{ rke2_vip }}
+{% for san in rke2_extra_sans | default([]) %}
+  - {{ san }}
+{% endfor %}
+node-label:
+  - "node-role={{ rke2_node_role | default('control-plane') }}"
+{% if rke2_node_taints is defined and rke2_node_taints | length > 0 %}
+node-taint:
+{% for taint in rke2_node_taints %}
+  - "{{ taint }}"
+{% endfor %}
+{% endif %}
+# Embedded etcd (default for RKE2, no external etcd needed)
+cluster-init: {{ 'true' if inventory_hostname in groups['rke2_first_server'] else 'false' }}

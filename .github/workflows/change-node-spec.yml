@@ -1,0 +1,128 @@
+name: Change Worker Node Spec
+
+# Triggered on merge to main when workload-cluster tfvars change.
+# Performs rolling replacement: drain → delete VM → Terraform creates new VM with new spec.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/workload-cluster/terraform.tfvars"
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: "Cluster name"
+        required: true
+        default: workload-1
+      dry_run:
+        description: "Dry run — Terraform plan only"
+        required: false
+        default: "true"
+        type: boolean
+
+env:
+  TF_DIR: terraform/workload-cluster
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan (new node spec)
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.8"
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+        env:
+          TF_BACKEND_CONFIG: ${{ secrets.TF_BACKEND_CONFIG }}
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform plan -out=tfplan -input=false \
+            -var="proxmox_token_secret=$PROXMOX_TOKEN_SECRET" \
+            2>&1 | tee plan_output.txt
+
+          if grep -q "No changes" plan_output.txt; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          PROXMOX_TOKEN_SECRET: ${{ secrets.PROXMOX_TOKEN_SECRET }}
+          TF_VAR_proxmox_url: ${{ secrets.PROXMOX_URL }}
+          TF_VAR_proxmox_token_id: ${{ secrets.PROXMOX_TOKEN_ID }}
+
+      - name: Post plan to summary
+        run: |
+          echo "## Terraform Plan" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat ${{ env.TF_DIR }}/plan_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  rolling-replace:
+    name: Rolling Node Replacement
+    needs: terraform-plan
+    runs-on: ubuntu-latest
+    if: |
+      needs.terraform-plan.outputs.has_changes == 'true' &&
+      (github.event_name == 'push' || inputs.dry_run == 'false')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tools
+        run: pip install ansible kubernetes
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_MGMT" | base64 -d > ~/.kube/config
+        env:
+          KUBECONFIG_MGMT: ${{ secrets.KUBECONFIG_MGMT }}
+
+      - name: Write SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.8"
+
+      - name: Get worker node list
+        id: nodes
+        run: |
+          nodes=$(kubectl get nodes -l node-role=worker --no-headers -o custom-columns=NAME:.metadata.name | tr '\n' ',')
+          echo "nodes=$nodes" >> $GITHUB_OUTPUT
+
+      - name: Rolling replace workers (one at a time)
+        run: |
+          IFS=',' read -ra NODE_LIST <<< "${{ steps.nodes.outputs.nodes }}"
+          for node in "${NODE_LIST[@]}"; do
+            [ -z "$node" ] && continue
+            echo "==> Replacing node: $node"
+            ansible-playbook ansible/playbooks/replace-node.yml \
+              -e target_node="$node" \
+              -e "terraform_dir=$(pwd)/$TF_DIR" \
+              -e "proxmox_url=$PROXMOX_URL" \
+              -e "proxmox_token_id=$PROXMOX_TOKEN_ID" \
+              -e "proxmox_token_secret=$PROXMOX_TOKEN_SECRET"
+            echo "==> $node replaced. Waiting 60s before next..."
+            sleep 60
+          done
+        env:
+          PROXMOX_URL: ${{ secrets.PROXMOX_URL }}
+          PROXMOX_TOKEN_ID: ${{ secrets.PROXMOX_TOKEN_ID }}
+          PROXMOX_TOKEN_SECRET: ${{ secrets.PROXMOX_TOKEN_SECRET }}
+
+      - name: Final node status
+        run: kubectl get nodes -o wide

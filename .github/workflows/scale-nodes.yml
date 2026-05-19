@@ -1,0 +1,99 @@
+name: Manual Node Scale
+
+# Use this to override the autoscaler and immediately scale to a target count.
+on:
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: "Cluster name"
+        required: true
+        default: workload-1
+      direction:
+        description: "Scale direction"
+        required: true
+        type: choice
+        options: [up, down]
+      count:
+        description: "Number of nodes to add (up) or remove (down)"
+        required: true
+        default: "1"
+        type: string
+      reason:
+        description: "Reason for manual scale (logged in summary)"
+        required: false
+        type: string
+
+jobs:
+  scale:
+    name: Scale ${{ inputs.direction }} by ${{ inputs.count }} node(s)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_MGMT" | base64 -d > ~/.kube/config
+        env:
+          KUBECONFIG_MGMT: ${{ secrets.KUBECONFIG_MGMT }}
+
+      - name: Current state
+        id: state
+        run: |
+          current=$(kubectl get nodes -l node-role=worker --no-headers | wc -l)
+          echo "current=$current" >> $GITHUB_OUTPUT
+          echo "Current worker nodes: $current"
+          kubectl get nodes -o wide
+
+      - name: Scale UP — call autoscaler API to add nodes
+        if: inputs.direction == 'up'
+        run: |
+          target=$(( ${{ steps.state.outputs.current }} + ${{ inputs.count }} ))
+          echo "Scaling to $target workers"
+
+          # Patch autoscaler Deployment env to temporarily raise min_nodes,
+          # which forces immediate scale-up.
+          kubectl set env deployment/proxmox-autoscaler \
+            MIN_NODES=$target \
+            -n kube-system
+
+          # Wait for nodes to appear
+          for i in $(seq 1 30); do
+            actual=$(kubectl get nodes -l node-role=worker --no-headers | grep Ready | wc -l)
+            echo "[$i/30] Ready workers: $actual / $target"
+            [ "$actual" -ge "$target" ] && break
+            sleep 30
+          done
+
+          # Restore original MIN_NODES from values
+          kubectl set env deployment/proxmox-autoscaler \
+            MIN_NODES=${{ vars.DEFAULT_MIN_NODES || '2' }} \
+            -n kube-system
+
+      - name: Scale DOWN — gracefully remove nodes
+        if: inputs.direction == 'down'
+        run: |
+          count=${{ inputs.count }}
+          nodes=$(kubectl get nodes -l node-role=worker,managed-by=autoscaler \
+            --no-headers -o custom-columns=NAME:.metadata.name | tail -n $count)
+
+          for node in $nodes; do
+            echo "==> Draining $node"
+            kubectl drain "$node" \
+              --ignore-daemonsets \
+              --delete-emptydir-data \
+              --grace-period=60 \
+              --timeout=300s
+            kubectl delete node "$node"
+            echo "==> $node removed from cluster (Proxmox VM will be cleaned by autoscaler)"
+            sleep 10
+          done
+
+      - name: Summary
+        run: |
+          echo "## Manual Scale Complete" >> $GITHUB_STEP_SUMMARY
+          echo "Direction: **${{ inputs.direction }}**  Count: **${{ inputs.count }}**" >> $GITHUB_STEP_SUMMARY
+          [ -n "${{ inputs.reason }}" ] && echo "Reason: ${{ inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Current Nodes" >> $GITHUB_STEP_SUMMARY
+          kubectl get nodes -o wide | cat >> $GITHUB_STEP_SUMMARY

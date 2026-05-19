@@ -1,0 +1,46 @@
+image:
+  repository: ghcr.io/hijason-me/proxmox-rke2-rancher/autoscaler
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# All sensitive values should come from the k8s Secret below, not set here
+env:
+  CLUSTER_NAME: "workload-1"
+  LOOP_INTERVAL: "30"
+  MIN_NODES: "2"
+  MAX_NODES: "10"
+  SCALE_UP_CPU: "80"
+  SCALE_UP_MEM: "85"
+  SCALE_DOWN_CPU: "30"
+  SCALE_DOWN_MEM: "40"
+  COOLDOWN_SECONDS: "180"
+  RKE2_VERSION: "v1.30.4+rke2r1"
+  PROXMOX_NODE: "pve1"
+  PROXMOX_TEMPLATE_VM_ID: "9000"
+  PROXMOX_VM_ID_START: "400"
+  WORKER_CPU: "4"
+  WORKER_MEMORY_MB: "8192"
+  WORKER_DISK_GB: "50"
+  DATASTORE_ID: "local-lvm"
+  SNIPPETS_DATASTORE_ID: "local"
+  NETWORK_BRIDGE: "vmbr0"
+
+# Secret name containing: PROXMOX_URL, PROXMOX_TOKEN_ID, PROXMOX_TOKEN_SECRET,
+#                          RKE2_SERVER_URL, RKE2_TOKEN
+existingSecret: proxmox-autoscaler-secrets
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+serviceAccount:
+  create: true
+  name: proxmox-autoscaler
+
+rbac:
+  # Needs read on nodes/pods, write on nodes (cordon/delete), pod evictions
+  create: true

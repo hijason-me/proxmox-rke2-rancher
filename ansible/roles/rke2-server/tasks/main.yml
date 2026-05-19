@@ -1,0 +1,70 @@
+---
+- name: Create RKE2 config directory
+  file:
+    path: /etc/rancher/rke2
+    state: directory
+    mode: "0750"
+
+- name: Write RKE2 server config
+  template:
+    src: config.yaml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    mode: "0640"
+  notify: restart rke2-server
+
+- name: Download and install RKE2
+  shell: |
+    curl -sfL https://get.rke2.io | \
+      INSTALL_RKE2_VERSION="{{ rke2_version }}" \
+      INSTALL_RKE2_TYPE="server" sh -
+  args:
+    creates: /usr/local/bin/rke2
+
+- name: Enable and start rke2-server (first server bootstraps)
+  systemd:
+    name: rke2-server
+    enabled: true
+    state: started
+  when: inventory_hostname in groups['rke2_first_server']
+
+- name: Wait for RKE2 kubeconfig on first server
+  wait_for:
+    path: /etc/rancher/rke2/rke2.yaml
+    timeout: 300
+  when: inventory_hostname in groups['rke2_first_server']
+
+- name: Wait for first server to become ready before joining others
+  pause:
+    seconds: 30
+  when: inventory_hostname not in groups['rke2_first_server']
+
+- name: Enable and start rke2-server (join cluster)
+  systemd:
+    name: rke2-server
+    enabled: true
+    state: started
+  when: inventory_hostname not in groups['rke2_first_server']
+
+- name: Symlink kubectl and crictl for convenience
+  file:
+    src: "/var/lib/rancher/rke2/bin/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    state: link
+  loop:
+    - kubectl
+    - crictl
+    - ctr
+  ignore_errors: true
+
+- name: Add KUBECONFIG to ubuntu user profile
+  lineinfile:
+    path: /home/ubuntu/.bashrc
+    line: "export KUBECONFIG=/etc/rancher/rke2/rke2.yaml"
+    create: true
+
+- name: Fetch kubeconfig (first server only)
+  fetch:
+    src: /etc/rancher/rke2/rke2.yaml
+    dest: "{{ playbook_dir }}/../kubeconfigs/{{ inventory_hostname }}.yaml"
+    flat: true
+  when: inventory_hostname in groups['rke2_first_server']

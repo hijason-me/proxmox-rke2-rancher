@@ -1,0 +1,71 @@
+---
+- name: Set hostname
+  hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Update apt cache and upgrade packages
+  apt:
+    update_cache: true
+    upgrade: safe
+    cache_valid_time: 3600
+
+- name: Install required packages
+  apt:
+    name:
+      - curl
+      - wget
+      - open-iscsi
+      - nfs-common
+      - jq
+      - unzip
+      - net-tools
+      - qemu-guest-agent
+    state: present
+
+- name: Enable qemu-guest-agent
+  systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+- name: Disable swap
+  command: swapoff -a
+  changed_when: false
+
+- name: Remove swap from fstab
+  lineinfile:
+    path: /etc/fstab
+    regexp: '^\S+\s+\S+\s+swap\s'
+    state: absent
+
+- name: Configure kernel modules for RKE2
+  copy:
+    dest: /etc/modules-load.d/rke2.conf
+    content: |
+      overlay
+      br_netfilter
+
+- name: Load kernel modules
+  modprobe:
+    name: "{{ item }}"
+  loop:
+    - overlay
+    - br_netfilter
+
+- name: Configure sysctl for Kubernetes
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/99-kubernetes.conf
+    reload: true
+  loop:
+    - { name: "net.bridge.bridge-nf-call-iptables",  value: "1" }
+    - { name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+    - { name: "net.ipv4.ip_forward",                 value: "1" }
+    - { name: "fs.inotify.max_user_watches",          value: "524288" }
+    - { name: "fs.inotify.max_user_instances",        value: "512" }
+
+- name: Configure UFW to allow all (RKE2 manages network policy)
+  ufw:
+    state: disabled

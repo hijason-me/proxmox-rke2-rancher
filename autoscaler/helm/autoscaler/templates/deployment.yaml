@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxmox-autoscaler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: proxmox-autoscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxmox-autoscaler
+  template:
+    metadata:
+      labels:
+        app: proxmox-autoscaler
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: autoscaler
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            # Secrets injected from existing Secret
+            - name: PROXMOX_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: PROXMOX_URL
+            - name: PROXMOX_TOKEN_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: PROXMOX_TOKEN_ID
+            - name: PROXMOX_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: PROXMOX_TOKEN_SECRET
+            - name: RKE2_SERVER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: RKE2_SERVER_URL
+            - name: RKE2_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: RKE2_TOKEN
+          volumeMounts:
+            - name: kubeconfig
+              mountPath: /etc/autoscaler
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: kubeconfig
+          secret:
+            secretName: {{ .Values.existingSecret }}
+            items:
+              - key: KUBECONFIG
+                path: kubeconfig

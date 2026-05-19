@@ -1,0 +1,62 @@
+---
+# Replace a worker node (for spec changes via Terraform)
+# Usage: ansible-playbook replace-node.yml -e target_node=workload-worker-3
+- name: Drain and delete old node
+  hosts: localhost
+  vars:
+    kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') }}"
+  tasks:
+    - name: Cordon node
+      kubernetes.core.k8s_drain:
+        name: "{{ target_node }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: cordon
+
+    - name: Drain node (evict all pods)
+      kubernetes.core.k8s_drain:
+        name: "{{ target_node }}"
+        kubeconfig: "{{ kubeconfig_path }}"
+        delete_options:
+          ignore_daemonsets: true
+          delete_emptydir_data: true
+          grace_period: 60
+        wait_timeout: 600
+
+    - name: Delete node from Kubernetes
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Node
+        name: "{{ target_node }}"
+        state: absent
+        kubeconfig: "{{ kubeconfig_path }}"
+
+    - name: Delete old VM via Proxmox API
+      uri:
+        url: "{{ proxmox_url }}/api2/json/nodes/{{ proxmox_node }}/qemu/{{ vm_id }}"
+        method: DELETE
+        headers:
+          Authorization: "PVEAPIToken={{ proxmox_token_id }}={{ proxmox_token_secret }}"
+        validate_certs: false
+      when: vm_id is defined
+
+    - name: Terraform apply to create new node
+      shell: |
+        cd {{ terraform_dir }}
+        terraform apply -target=module.workload_agent_initial[{{ node_index }}] -auto-approve
+      environment:
+        TF_VAR_worker_cpu: "{{ new_cpu | default(omit) }}"
+        TF_VAR_worker_memory: "{{ new_memory | default(omit) }}"
+
+    - name: Wait for new node to appear in cluster
+      kubernetes.core.k8s_info:
+        kind: Node
+        kubeconfig: "{{ kubeconfig_path }}"
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 300
+      register: nodes
+      until: nodes.resources | selectattr('metadata.name', 'match', target_node) | list | length > 0
+      retries: 20
+      delay: 15

@@ -1,0 +1,39 @@
+# Copy to terraform.tfvars and fill in your values
+# Never commit terraform.tfvars to git
+
+proxmox_url          = "https://192.168.1.10:8006"
+proxmox_token_id     = "terraform@pam!terraform-token"
+proxmox_token_secret = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+proxmox_insecure     = true   # set false if you have valid TLS
+proxmox_ssh_user     = "root"
+
+proxmox_nodes = ["pve1", "pve2", "pve3"]   # spread across nodes for HA
+
+template_vm_id        = 9000
+datastore_id          = "local-lvm"
+snippets_datastore_id = "local"
+network_bridge        = "vmbr0"
+dns_servers           = ["192.168.1.1", "1.1.1.1"]
+
+ssh_public_keys = [
+  "ssh-ed25519 AAAA... your-key-here"
+]
+
+rke2_version = "v1.30.4+rke2r1"
+rke2_token   = "your-very-long-random-token-here"
+
+# Management cluster network
+mgmt_vip     = "192.168.1.100"   # kube-vip VIP, must be unused IP
+mgmt_cp_ips  = [
+  "192.168.1.101",
+  "192.168.1.102",
+  "192.168.1.103",
+]
+mgmt_extra_sans = ["rancher.example.com"]
+ip_prefix       = 24
+gateway         = "192.168.1.1"
+
+# Control plane node specs
+control_plane_cpu    = 4
+control_plane_memory = 8192   # MB
+control_plane_disk   = 50     # GB

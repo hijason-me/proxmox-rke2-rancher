@@ -1,0 +1,45 @@
+proxmox_url          = "https://192.168.1.10:8006"
+proxmox_token_id     = "terraform@pam!terraform-token"
+proxmox_token_secret = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+proxmox_insecure     = true
+proxmox_ssh_user     = "root"
+
+proxmox_nodes = ["pve1", "pve2", "pve3"]
+
+cluster_name          = "workload-1"
+template_vm_id        = 9000
+datastore_id          = "local-lvm"
+snippets_datastore_id = "local"
+network_bridge        = "vmbr0"
+dns_servers           = ["192.168.1.1", "1.1.1.1"]
+
+ssh_public_keys = ["ssh-ed25519 AAAA... your-key-here"]
+
+rke2_version = "v1.30.4+rke2r1"
+rke2_token   = "your-very-long-random-token-here"
+
+cluster_vip = "192.168.1.110"
+cp_ips = [
+  "192.168.1.111",
+  "192.168.1.112",
+  "192.168.1.113",
+]
+extra_sans  = ["k8s.example.com"]
+ip_prefix   = 24
+gateway     = "192.168.1.1"
+
+vm_id_offset = 300
+
+# ── Control plane specs ──
+control_plane_cpu    = 4
+control_plane_memory = 8192
+control_plane_disk   = 50
+
+# ── Worker specs ─────────────────────────────────────────────────────────────
+# Changing these values triggers rolling node replacement via GitHub Actions.
+worker_cpu    = 4
+worker_memory = 8192   # MB
+worker_disk   = 50     # GB
+
+# Baseline nodes managed by Terraform (autoscaler adds more on top)
+initial_worker_count = 2

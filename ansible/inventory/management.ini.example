@@ -1,0 +1,12 @@
+[rke2_servers]
+mgmt-cp-1 ansible_host=192.168.1.101
+mgmt-cp-2 ansible_host=192.168.1.102
+mgmt-cp-3 ansible_host=192.168.1.103
+
+[rke2_servers:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/id_ed25519
+rke2_role=server
+
+[rke2_first_server]
+mgmt-cp-1 ansible_host=192.168.1.101
