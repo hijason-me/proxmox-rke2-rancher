@@ -1,0 +1,4 @@
+---
+rke2_version: "v1.30.4+rke2r1"
+rke2_server_url: ""
+rke2_node_labels: {}

@@ -1,0 +1,7 @@
+---
+rke2_version: "v1.30.4+rke2r1"
+rke2_vip: ""
+rke2_server_url: ""
+rke2_extra_sans: []
+rke2_node_role: "control-plane"
+rke2_node_taints: []
