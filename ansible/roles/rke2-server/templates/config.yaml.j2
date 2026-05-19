@@ -1,5 +1,7 @@
 token: {{ rke2_token }}
-{% if inventory_hostname not in groups['rke2_first_server'] %}
+{% if inventory_hostname in groups['rke2_first_server'] %}
+cluster-init: true
+{% else %}
 server: https://{{ rke2_server_url }}:9345
 {% endif %}
 tls-san:
@@ -15,5 +17,3 @@ node-taint:
   - "{{ taint }}"
 {% endfor %}
 {% endif %}
-# Embedded etcd (default for RKE2, no external etcd needed)
-cluster-init: {{ 'true' if inventory_hostname in groups['rke2_first_server'] else 'false' }}
