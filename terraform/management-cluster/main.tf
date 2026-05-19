@@ -45,6 +45,7 @@ module "mgmt_server" {
   datastore_id          = var.datastore_id
   snippets_datastore_id = var.snippets_datastore_id
   network_bridge        = var.network_bridge
+  vlan_id               = var.vlan_id
   dns_servers           = var.dns_servers
   ssh_public_keys       = var.ssh_public_keys
 

@@ -15,6 +15,16 @@ variable "template_vm_id" { type = number; default = 9000 }
 variable "datastore_id" { type = string; default = "local-lvm" }
 variable "snippets_datastore_id" { type = string; default = "local" }
 variable "network_bridge" { type = string; default = "vmbr0" }
+
+variable "vlan_id" {
+  description = "VLAN tag ID (1–4094). null = untagged"
+  type        = number
+  default     = null
+  validation {
+    condition     = var.vlan_id == null || (var.vlan_id >= 1 && var.vlan_id <= 4094)
+    error_message = "vlan_id must be between 1 and 4094, or null for untagged."
+  }
+}
 variable "dns_servers" { type = list(string); default = ["1.1.1.1"] }
 variable "ssh_public_keys" { type = list(string) }
 

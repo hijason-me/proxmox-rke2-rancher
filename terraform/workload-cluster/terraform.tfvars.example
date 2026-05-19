@@ -11,6 +11,7 @@ template_vm_id        = 9000
 datastore_id          = "local-lvm"
 snippets_datastore_id = "local"
 network_bridge        = "vmbr0"
+# vlan_id             = 200   # 取消註解並填入 VLAN ID（1–4094），不用 VLAN 就不填
 dns_servers           = ["192.168.1.1", "1.1.1.1"]
 
 ssh_public_keys = ["ssh-ed25519 AAAA... your-key-here"]

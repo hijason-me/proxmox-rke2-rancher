@@ -33,6 +33,16 @@ variable "network_bridge" {
   default     = "vmbr0"
 }
 
+variable "vlan_id" {
+  description = "VLAN tag ID (1–4094). null = untagged"
+  type        = number
+  default     = null
+  validation {
+    condition     = var.vlan_id == null || (var.vlan_id >= 1 && var.vlan_id <= 4094)
+    error_message = "vlan_id must be between 1 and 4094, or null for untagged."
+  }
+}
+
 variable "ssh_public_keys" {
   description = "SSH public keys for cloud-init"
   type        = list(string)
