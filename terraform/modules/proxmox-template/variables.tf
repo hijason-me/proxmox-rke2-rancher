@@ -6,7 +6,7 @@ variable "node_name" {
 variable "template_name" {
   description = "Name for the VM template"
   type        = string
-  default     = "ubuntu-22.04-rke2-template"
+  default     = "ubuntu-24.04-rke2-template"
 }
 
 variable "template_vm_id" {

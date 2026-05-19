@@ -7,17 +7,17 @@
 ```bash
 # 在 Proxmox 節點上執行（SSH 進去）
 
-# 下載 Ubuntu 22.04 cloud image
-wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img \
-     -O /tmp/ubuntu-22.04-cloud.img
+# 下載 Ubuntu 24.04 cloud image
+wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img \
+     -O /tmp/ubuntu-24.04-cloud.img
 
 # 建立 VM（ID 9000）
 qm create 9000 \
-  --name ubuntu-22.04-rke2-template \
+  --name ubuntu-24.04-rke2-template \
   --memory 2048 \
   --net0 virtio,bridge=vmbr0 \
   --scsihw virtio-scsi-pci \
-  --scsi0 local-lvm:0,import-from=/tmp/ubuntu-22.04-cloud.img \
+  --scsi0 local-lvm:0,import-from=/tmp/ubuntu-24.04-cloud.img \
   --ide2 local-lvm:cloudinit \
   --boot order=scsi0 \
   --serial0 socket \

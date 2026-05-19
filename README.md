@@ -99,7 +99,7 @@ Every 30s:
 
 ### Prerequisites
 - Proxmox VE 8.x with API token
-- Ubuntu 22.04 cloud-init template (see [docs/proxmox-template.md](docs/proxmox-template.md))
+- Ubuntu 24.04 cloud-init template (see [docs/proxmox-template.md](docs/proxmox-template.md))
 - `terraform`, `ansible`, `kubectl`, `helm`, `gh` CLI installed
 
 ### 1. Bootstrap Management Cluster

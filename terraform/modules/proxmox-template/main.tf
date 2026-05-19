@@ -7,13 +7,13 @@ terraform {
   }
 }
 
-# Downloads Ubuntu 22.04 cloud image and creates a VM template
+# Downloads Ubuntu 24.04 cloud image and creates a VM template
 resource "proxmox_virtual_environment_download_file" "ubuntu_cloud_image" {
   content_type = "iso"
   datastore_id = var.datastore_id
   node_name    = var.node_name
-  url          = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
-  file_name    = "ubuntu-22.04-cloud.img"
+  url          = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+  file_name    = "ubuntu-24.04-cloud.img"
   overwrite    = false
 }
 
@@ -22,7 +22,7 @@ resource "proxmox_virtual_environment_vm" "template" {
   node_name = var.node_name
   vm_id     = var.template_vm_id
   template  = true
-  tags      = ["rke2", "template", "ubuntu-22.04"]
+  tags      = ["rke2", "template", "ubuntu-24.04"]
 
   cpu {
     cores = 2
