@@ -12,7 +12,8 @@
     - 1     # first server bootstraps alone
     - "50%" # remaining servers join in parallel batches
   roles:
-    - rke2-server
+    - role: rke2-server
+      tags: always
 
 - name: Join RKE2 agents
   hosts: rke2_agents

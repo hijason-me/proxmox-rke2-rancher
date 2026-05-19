@@ -26,6 +26,7 @@
     state: directory
     mode: "0750"
   when: inventory_hostname in groups['rke2_first_server']
+  tags: kube-vip
 
 - name: Deploy kube-vip manifest (auto-applied by RKE2 on startup)
   template:
@@ -33,6 +34,7 @@
     dest: /var/lib/rancher/rke2/server/manifests/kube-vip.yaml
     mode: "0640"
   when: inventory_hostname in groups['rke2_first_server']
+  tags: kube-vip
 
 - name: Enable and start rke2-server (first server bootstraps)
   systemd:
