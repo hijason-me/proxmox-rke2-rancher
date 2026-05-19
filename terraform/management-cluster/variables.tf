@@ -26,6 +26,12 @@ variable "proxmox_ssh_user" {
   default     = "root"
 }
 
+variable "proxmox_ssh_private_key_path" {
+  description = "Path to SSH private key for Proxmox node access (used to upload cloud-init snippets)"
+  type        = string
+  default     = "~/.ssh/id_ed25519"
+}
+
 variable "proxmox_nodes" {
   description = "List of Proxmox cluster nodes to spread VMs across"
   type        = list(string)

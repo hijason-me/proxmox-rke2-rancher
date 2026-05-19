@@ -3,6 +3,12 @@ variable "proxmox_token_id" { type = string }
 variable "proxmox_token_secret" { type = string; sensitive = true }
 variable "proxmox_insecure" { type = bool; default = false }
 variable "proxmox_ssh_user" { type = string; default = "root" }
+
+variable "proxmox_ssh_private_key_path" {
+  description = "Path to SSH private key for Proxmox node access (used to upload cloud-init snippets)"
+  type        = string
+  default     = "~/.ssh/id_ed25519"
+}
 variable "proxmox_nodes" { type = list(string) }
 
 variable "cluster_name" {

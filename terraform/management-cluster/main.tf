@@ -21,8 +21,9 @@ provider "proxmox" {
   api_token = "${var.proxmox_token_id}=${var.proxmox_token_secret}"
   insecure  = var.proxmox_insecure
   ssh {
-    agent    = true
-    username = var.proxmox_ssh_user
+    agent            = false
+    username         = var.proxmox_ssh_user
+    private_key_file = var.proxmox_ssh_private_key_path
   }
 }
 
