@@ -58,6 +58,22 @@
   delegate_to: localhost
   become: false
   when: inventory_hostname in groups['rke2_first_server']
+  ignore_errors: true
+  register: vip_wait_result
+
+- name: Warn if VIP is not reachable yet
+  debug:
+    msg:
+      - "WARNING: VIP {{ rke2_vip }}:6443 is not reachable yet."
+      - "Possible causes:"
+      - "  1. VIP is not on the same subnet as node IPs (must be same /24 for ARP mode)"
+      - "     Nodes: check 'ip addr' on mgmt-cp-1"
+      - "     VIP should be: 192.168.111.x (same as your nodes)"
+      - "  2. kube-vip pod is still starting — check: kubectl get pods -n kube-system"
+      - "  3. Wrong network interface — check rke2_vip_interface in inventory"
+  when:
+    - inventory_hostname in groups['rke2_first_server']
+    - vip_wait_result is failed
 
 - name: Wait for first server to become ready before joining others
   pause:
