@@ -1,0 +1,21 @@
+---
+- name: Enable promiscuous mode immediately
+  command: ip link set {{ proxmox_bridge }} promisc on
+  changed_when: false
+
+- name: Ensure post-up promisc line exists in /etc/network/interfaces
+  lineinfile:
+    path: /etc/network/interfaces
+    insertafter: "iface {{ proxmox_bridge }} inet"
+    line: "        post-up ip link set {{ proxmox_bridge }} promisc on"
+    regexp: "post-up ip link set {{ proxmox_bridge }} promisc on"
+    state: present
+
+- name: Verify promiscuous mode is active
+  command: ip link show {{ proxmox_bridge }}
+  register: bridge_status
+  changed_when: false
+
+- name: Show bridge status
+  debug:
+    msg: "{{ bridge_status.stdout }}"
