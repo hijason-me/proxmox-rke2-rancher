@@ -6,7 +6,7 @@
 - name: Ensure post-up promisc line exists in /etc/network/interfaces
   lineinfile:
     path: /etc/network/interfaces
-    insertafter: "iface {{ proxmox_bridge }} inet"
+    insertafter: "bridge-fd"
     line: "        post-up ip link set {{ proxmox_bridge }} promisc on"
     regexp: "post-up ip link set {{ proxmox_bridge }} promisc on"
     state: present
