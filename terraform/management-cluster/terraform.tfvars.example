@@ -39,3 +39,15 @@ gateway         = "192.168.1.1"
 control_plane_cpu    = 4
 control_plane_memory = 8192   # MB
 control_plane_disk   = 50     # GB
+
+# Worker node specs
+# VM ID: worker_vmid_start + index (e.g., 210 → mgmt-wk-1=210, mgmt-wk-2=211)
+worker_count      = 2
+worker_vmid_start = 210
+mgmt_worker_ips   = [
+  "192.168.1.111",
+  "192.168.1.112",
+]
+worker_cpu    = 4
+worker_memory = 8192   # MB
+worker_disk   = 100    # GB（worker 通常需要更多 disk 給 pod storage）

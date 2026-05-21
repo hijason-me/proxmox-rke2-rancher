@@ -139,3 +139,44 @@ variable "control_plane_disk" {
   type        = number
   default     = 50
 }
+
+# ── Worker node config ──────────────────────────────────────────────────────
+
+variable "worker_count" {
+  description = "Number of worker nodes"
+  type        = number
+  default     = 2
+}
+
+variable "worker_vmid_start" {
+  description = "Starting VM ID for worker nodes (e.g., 210 → mgmt-wk-1=210, mgmt-wk-2=211)"
+  type        = number
+  default     = 210
+}
+
+variable "mgmt_worker_ips" {
+  description = "Static IPs for worker nodes (must match worker_count)"
+  type        = list(string)
+  validation {
+    condition     = length(var.mgmt_worker_ips) == var.worker_count
+    error_message = "mgmt_worker_ips must have exactly worker_count entries."
+  }
+}
+
+variable "worker_cpu" {
+  description = "Worker node vCPU count"
+  type        = number
+  default     = 4
+}
+
+variable "worker_memory" {
+  description = "Worker node RAM in MB"
+  type        = number
+  default     = 8192
+}
+
+variable "worker_disk" {
+  description = "Worker node disk size in GB"
+  type        = number
+  default     = 100
+}

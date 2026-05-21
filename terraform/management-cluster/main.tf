@@ -68,3 +68,41 @@ module "mgmt_server" {
   ip_prefix  = var.ip_prefix
   gateway    = var.gateway
 }
+
+# ── Worker nodes ────────────────────────────────────────────────────────────
+
+module "mgmt_worker" {
+  count  = var.worker_count
+  source = "../modules/rke2-node"
+
+  name           = "mgmt-wk-${count.index + 1}"
+  vm_id          = var.worker_vmid_start + count.index
+  proxmox_node   = var.proxmox_nodes[count.index % length(var.proxmox_nodes)]
+  template_vm_id = var.template_vm_id
+  role           = "agent"
+
+  cpu_cores  = var.worker_cpu
+  memory_mb  = var.worker_memory
+  disk_size  = var.worker_disk
+
+  datastore_id          = var.datastore_id
+  snippets_datastore_id = var.snippets_datastore_id
+  network_bridge        = var.network_bridge
+  vlan_id               = var.vlan_id
+  dns_servers           = var.dns_servers
+  ssh_public_keys       = var.ssh_public_keys
+
+  rke2_version    = var.rke2_version
+  rke2_server_url = "https://${var.mgmt_vip}:9345"
+  rke2_token      = var.rke2_token
+
+  node_labels = {
+    "node-role" = "worker"
+  }
+
+  node_taints = []
+
+  ip_address = var.mgmt_worker_ips[count.index]
+  ip_prefix  = var.ip_prefix
+  gateway    = var.gateway
+}
